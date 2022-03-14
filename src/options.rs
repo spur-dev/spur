@@ -1,10 +1,78 @@
-use crate::CustomError;
+use crate::{paths, CustomError};
 use clap::Arg;
 use std::str::FromStr;
+
 pub trait MetaOption {
     const COMMAND_NAME: &'static str;
     fn values() -> [&'static str; 2];
     fn create_arg<'a>() -> Arg<'a>;
+}
+
+/** Type */
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum SType {
+    Record = 0,
+    Stream = 1,
+}
+
+impl SType {
+    pub fn get_name(&self) -> String {
+        SType::to_string(self)
+    }
+
+    pub fn get_target_path(&self, filename: &String) -> String {
+        match self {
+            // todo: convert this into a function
+            SType::Record => paths::get_video_path(filename)
+                .as_path()
+                .display()
+                .to_string(),
+            SType::Stream => paths::get_stream_path(filename),
+        }
+    }
+}
+
+impl Default for SType {
+    fn default() -> Self {
+        SType::Stream
+    }
+}
+
+impl FromStr for SType {
+    type Err = CustomError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "record" => Ok(SType::Record),
+            "stream" => Ok(SType::Stream),
+            _ => Err(CustomError::InvalidAnswer),
+        }
+    }
+}
+
+impl ToString for SType {
+    fn to_string(&self) -> String {
+        match self {
+            &Self::Record => String::from("record"),
+            &Self::Stream => String::from("stream"),
+        }
+    }
+}
+impl MetaOption for SType {
+    const COMMAND_NAME: &'static str = "session";
+    fn values() -> [&'static str; 2] {
+        const SUB_COMMANDS: [&'static str; 2] = ["record", "stream"];
+        SUB_COMMANDS
+    }
+
+    fn create_arg<'a>() -> Arg<'a> {
+        Arg::new(Self::COMMAND_NAME)
+            .long(Self::COMMAND_NAME)
+            .takes_value(true)
+            .default_value("record")
+            .required(false)
+            .help("Wether to stream to server or store to storage")
+    }
 }
 
 /** Quality */
@@ -102,55 +170,5 @@ impl MetaOption for FrameRate {
             .default_value("24")
             .required(false)
             .help("Framerate of recording")
-    }
-}
-
-/** Type */
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum SType {
-    Record = 0,
-    Stream = 1,
-}
-
-impl Default for SType {
-    fn default() -> Self {
-        SType::Stream
-    }
-}
-
-impl FromStr for SType {
-    type Err = CustomError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "record" => Ok(SType::Record),
-            "stream" => Ok(SType::Stream),
-            _ => Err(CustomError::InvalidAnswer),
-        }
-    }
-}
-
-impl ToString for SType {
-    fn to_string(&self) -> String {
-        match self {
-            &Self::Record => String::from("record"),
-            &Self::Stream => String::from("stream"),
-        }
-    }
-}
-impl MetaOption for SType {
-    const COMMAND_NAME: &'static str = "session";
-    fn values() -> [&'static str; 2] {
-        const SUB_COMMANDS: [&'static str; 2] = ["record", "stream"];
-        SUB_COMMANDS
-    }
-
-    fn create_arg<'a>() -> Arg<'a> {
-        Arg::new(Self::COMMAND_NAME)
-            .long(Self::COMMAND_NAME)
-            .takes_value(true)
-            .default_value("record")
-            .required(false)
-            .help("Wether to stream to server or store to storage")
     }
 }

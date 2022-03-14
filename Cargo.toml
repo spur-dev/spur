@@ -11,3 +11,6 @@ v4l = {version = "0.12.1", features = ["v4l2-sys"] }
 gstreamer = "0.17.4"
 gstreamer-video = "0.17.2"
 num-rational = "0.4.0"
+
+home = "0.5.3"
+chrono = "0.4"

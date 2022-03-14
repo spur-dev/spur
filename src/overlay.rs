@@ -76,7 +76,6 @@ impl Media for CameraPreview {
 
     fn cancel_stream(&self) {}
     fn create_pipeline(&mut self) {
-        println!("Handling stream");
         let rate = Ratio::new(self.config.framerate as i32, 1);
         const WIDTH: i32 = 400;
         // const WIDTH: i32 = 800;
@@ -177,8 +176,8 @@ impl Media for CameraPreview {
             caps.set_data("caps", capsfilter);
 
             match caps.data::<Caps>("caps") {
-                Some(data) => {
-                    println!("{:?}", data.as_ref());
+                Some(_data) => {
+                    // println!("{:?}", data.as_ref());
                 }
                 None => println!("No data"),
             }

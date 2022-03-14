@@ -1,25 +1,42 @@
 use crate::{
     constants,
     options::{FrameRate, MetaOption, Quality, SType},
-    overlay, parser,
+    overlay, parser, paths,
     session::Session,
     Config,
 };
-use clap::{ArgMatches, Command};
-use std::str::FromStr;
+use clap::{Arg, ArgMatches, Command};
+use std::{fs, io::Write, process, str::FromStr};
 
-fn create_sub_command<'a>(st: SType) -> Command<'a> {
-    let conf = Config::new(st);
-    let path = conf.create_path_arg();
+/* Utils */
+// use chrono;
 
-    Command::new(conf.name).args([
+fn create_sub_command(st: SType) -> Command<'static> {
+    Command::new(st.get_name()).args([
         overlay::create_arg(),
         Quality::create_arg(),
         FrameRate::create_arg(),
-        path,
+        Arg::new("name")
+            .long("filename")
+            .short('n')
+            .takes_value(true)
+            .help("Name of recorded video"),
     ])
 }
 
+pub fn get_filename_from_arg(st: SType, arg_filename: Option<&str>) -> String {
+    let name = match arg_filename {
+        Some(fname) => fname,
+        // None => format!("{:?}", chrono::offset::Utc::now()).as_str(), // todo : generate from datetime
+        None => "123", // todo : generate from datetime
+    };
+    match st {
+        SType::Record => format!("{}.mkv", name),
+        SType::Stream => format!("/{}/{}", constants::STREAM_API_PATH, name),
+    }
+}
+
+/* Parser */
 pub fn parse_args() -> ArgMatches {
     return Command::new("spur")
         .version(constants::VERSION)
@@ -29,16 +46,50 @@ pub fn parse_args() -> ArgMatches {
         .subcommands([
             create_sub_command(SType::Record),
             create_sub_command(SType::Stream),
+            Command::new("setup").about("setting up spur on your machine"),
         ])
         .get_matches();
 }
 
 pub fn create_session_from_args() -> Session {
-    let mut conf = Config::default();
     let matches = parser::parse_args();
     match matches.subcommand() {
+        Some(("setup", _)) => {
+            // todo : abstract to function
+            // Creating a Videos directory
+            let videos_path = paths::get_video_directory_path();
+
+            fs::DirBuilder::new()
+                .recursive(true)
+                .create(&videos_path)
+                .unwrap_or_else(|err| {
+                    println!("Couldn't create directory - {}", videos_path.display());
+                    println!("Error - {:?}", err);
+                    process::exit(1);
+                });
+
+            // CURRENTLY, NOT USED
+            // Saving conf to text file
+            let home_path = paths::get_home_path().expect("Couldn't find your Home directory");
+            let mut conf_file = fs::File::create(format!(
+                "{}/{}",
+                home_path.display(),
+                constants::CONFIG_FILE_NAME
+            ))
+            .expect("Could not create conf file");
+            conf_file
+                .write_all(format!("{}", videos_path.display()).as_bytes()) // hacky
+                .expect("Could not write to conf file");
+            println!("-------------- Setup is complete ------------------------");
+            process::exit(0);
+        }
         Some((cmd_str, sub_match)) => {
-            conf.s_type = SType::from_str(cmd_str).unwrap();
+            // Creating config for new session
+            let st = SType::from_str(cmd_str).unwrap();
+            let arg_filename = sub_match.value_of("name");
+            let mut conf = Config::new(st, get_filename_from_arg(st, arg_filename));
+
+            // Updating config with parsed parameters
             let arg_quality = sub_match
                 .value_of(Quality::COMMAND_NAME)
                 .unwrap_or_default();

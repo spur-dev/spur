@@ -4,6 +4,7 @@ pub mod constants;
 pub mod options;
 pub mod overlay;
 pub mod parser;
+pub mod paths;
 pub mod recorder;
 pub mod session;
 pub mod streamer;
@@ -11,6 +12,7 @@ pub mod streamer;
 #[derive(Debug)]
 pub enum CustomError {
     InvalidAnswer,
+    CouldNotFindHome,
 }
 
 #[derive(Debug)]
@@ -25,24 +27,19 @@ pub enum ThreadMessages {
 #[derive(Debug, Clone)]
 pub struct Config {
     pub s_type: SType,
-    pub name: String,
-    pub cmd: &'static str,
-    pub path: &'static str,
+    pub filename: String,
+    pub path: String,
     pub quality: Quality,
     pub framerate: FrameRate,
     pub overlay: bool,
 }
 
 impl Config {
-    pub fn new(st: SType) -> Self {
-        let (name, path) = match st {
-            // Make tis a function
-            SType::Record => (SType::to_string(&SType::Record), "rtmp://someendpoint:1935"),
-            SType::Stream => (SType::to_string(&SType::Stream), "my-demo.mkv"),
-        };
+    pub fn new(st: SType, filename: String) -> Self {
+        let path = st.get_target_path(&filename);
+
         Config {
-            cmd: constants::CMD,
-            name,
+            filename: String::from(filename),
             path,
             framerate: FrameRate::default(),
             quality: Quality::default(),
@@ -50,20 +47,17 @@ impl Config {
             s_type: st,
         }
     }
+
+    // CURRENTLY, NOT USED
     pub fn update_session_type(&mut self, st: SType) {
         self.s_type = st;
-        let (name, path) = match st {
-            SType::Record => (SType::to_string(&SType::Record), "rtmp://someendpoint:1935"),
-            SType::Stream => (SType::to_string(&SType::Stream), "my-demo.mkv"),
-        };
-        self.name = name;
-        self.path = path;
+        self.path = st.get_target_path(&self.filename);
     }
-    pub fn create_path_arg<'a>(&self) -> Arg<'a> {
+    pub fn create_path_arg(&self) -> Arg {
         Arg::new("path")
             .long("path")
             .takes_value(self.s_type == SType::Record)
-            .default_value(self.path)
+            .default_value(self.path.as_str())
             .help("Set path of recording")
     }
 
@@ -82,6 +76,14 @@ impl Config {
             .help("Show current config settings")
     }
 }
+
+impl Default for Config {
+    fn default() -> Self {
+        let default_st = SType::default();
+        Config::new(default_st, parser::get_filename_from_arg(default_st, None))
+    }
+}
+
 /*Media*/
 pub trait Media {
     fn new(config: Config) -> Self
@@ -91,10 +93,4 @@ pub trait Media {
     fn stop_stream(&self);
     fn cancel_stream(&self);
     fn create_pipeline(&mut self);
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config::new(SType::default())
-    }
 }

@@ -58,7 +58,6 @@ impl Session {
         return Task::Overlay(task_obj);
     }
     pub fn start(&mut self) {
-        println!("Running session with values {:?}", &self);
         self.tasks.push(self.start_media_pipeline());
         if self.overlay {
             self.tasks.push(self.start_overlay_pipeline());

@@ -46,7 +46,6 @@ impl Media for Recorder {
     // fn handle_stream(&self) {
     fn create_pipeline(&mut self) {
         let rate = Ratio::new(self.config.framerate as i32, 1);
-        println!("Handling stream");
         // Pipeline creation
         gstreamer::init().expect("cannot start gstreamer");
         let main_pipeline = Pipeline::new(Some("recorder"));
@@ -159,7 +158,7 @@ impl Media for Recorder {
             ])
             .unwrap();
         queue_audio.set_property("max-size-time", 0 as u64).unwrap();
-        sink.set_property("location", self.config.path).unwrap();
+        sink.set_property("location", &self.config.path).unwrap();
 
         // Linking video elements
         Element::link_many(&[
