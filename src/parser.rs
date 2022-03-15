@@ -6,11 +6,15 @@ use crate::{
     Config,
 };
 use clap::{Arg, ArgMatches, Command};
-use std::{fs, io::Write, process, str::FromStr};
+use std::{
+    fs,
+    io::Write,
+    process,
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 /* Utils */
-// use chrono;
-
 fn create_sub_command(st: SType) -> Command<'static> {
     Command::new(st.get_name()).args([
         overlay::create_arg(),
@@ -26,13 +30,24 @@ fn create_sub_command(st: SType) -> Command<'static> {
 
 pub fn get_filename_from_arg(st: SType, arg_filename: Option<&str>) -> String {
     let name = match arg_filename {
-        Some(fname) => fname,
-        // None => format!("{:?}", chrono::offset::Utc::now()).as_str(), // todo : generate from datetime
-        None => "123", // todo : generate from datetime
+        Some(fname) => String::from(fname),
+        None => {
+            // Getting millisecond timestamp
+            // https://stackoverflow.com/a/44378174/11565176
+            let start = SystemTime::now();
+            let since_the_epoch = start
+                .duration_since(UNIX_EPOCH)
+                .expect("Time went backwards");
+            format!(
+                "{:?}",
+                since_the_epoch.as_secs() * 1000
+                    + since_the_epoch.subsec_nanos() as u64 / 1_000_000
+            )
+        }
     };
     match st {
         SType::Record => format!("{}.mkv", name),
-        SType::Stream => format!("/{}/{}", constants::STREAM_API_PATH, name),
+        SType::Stream => format!("/{}/{}", env!("STREAM_API_PATH"), name),
     }
 }
 

@@ -197,15 +197,16 @@ impl Media for Streamer {
                 &muxer,
                 Some(muxer_video_sink_pad.name().as_str()),
             )
-            .unwrap(); // Video to muxer // TODO (probably overcomlicating): use `link_pad` with sync handler
-                       // encoder_audio.link_pads(Some(audio_pipeline_source_pad.name().as_str()), &muxer, Some(muxer_audio_sink_pad.name().as_str())).unwrap(); // Audio to muxer // TODO (probably overcomlicating): use `link_pad` with sync handler
+            .unwrap(); // Video to muxer // TODO (probably overcomplicating): use `link_pad` with sync handler
+
+        // encoder_audio.link_pads(Some(audio_pipeline_source_pad.name().as_str()), &muxer, Some(muxer_audio_sink_pad.name().as_str())).unwrap(); // Audio to muxer // TODO (probably overcomplicating): use `link_pad` with sync handler
         queue_audio
             .link_pads(
                 Some(audio_pipeline_source_pad.name().as_str()),
                 &muxer,
                 Some(muxer_audio_sink_pad.name().as_str()),
             )
-            .unwrap(); // Audio to muxer // TODO (probably overcomlicating): use `link_pad` with sync handler
+            .unwrap(); // Audio to muxer // TODO (probably overcomplicating): use `link_pad` with sync handler
 
         self.pipeline = Some(main_pipeline)
     }

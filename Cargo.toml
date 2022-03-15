@@ -13,4 +13,7 @@ gstreamer-video = "0.17.2"
 num-rational = "0.4.0"
 
 home = "0.5.3"
-chrono = "0.4"
+
+
+[build-dependencies]
+dotenv-build = "0.1"

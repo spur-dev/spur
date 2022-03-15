@@ -43,7 +43,7 @@ impl Session {
             task_obj.start_pipeline();
             return Task::Record(task_obj);
         } else {
-            // self.s_type == SType::Stream {
+            println!("Stream does not currently work");
             let mut task_obj = Streamer::new(conf.clone());
             task_obj.create_pipeline();
             task_obj.start_pipeline();
@@ -58,6 +58,7 @@ impl Session {
         return Task::Overlay(task_obj);
     }
     pub fn start(&mut self) {
+        // println!("{:?}", self); // DEBUG
         self.tasks.push(self.start_media_pipeline());
         if self.overlay {
             self.tasks.push(self.start_overlay_pipeline());

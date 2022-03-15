@@ -23,8 +23,5 @@ pub fn get_video_path(filename: &String) -> PathBuf {
 }
 
 pub fn get_stream_path(filename: &String) -> String {
-    // todo: gets api from environment variables
-    let mut path = String::from(constants::STREAM_API);
-    path.push_str(filename);
-    path
+    format!("{}{}", env!("STREAM_API"), filename)
 }
