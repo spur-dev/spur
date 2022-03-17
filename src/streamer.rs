@@ -40,7 +40,10 @@ impl Media for Streamer {
         };
     }
 
-    fn cancel_stream(&self) {}
+    fn cancel_stream(&self) {
+        println!("canceling streamer -- not yet implmented"); // todo
+        self.stop_stream();
+    }
     fn create_pipeline(&mut self) {
         let rate = Ratio::new(self.config.framerate as i32, 1);
 

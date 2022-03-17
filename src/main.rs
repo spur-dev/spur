@@ -9,6 +9,9 @@ fn main() {
         if input == String::from("end\n") {
             current_session.end();
             break;
+        } else if input == String::from("cancel\n") {
+            current_session.cancel();
+            break;
         }
         input = String::new();
         io::stdin().read_line(&mut input).unwrap();

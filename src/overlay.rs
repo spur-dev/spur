@@ -145,7 +145,9 @@ impl Media for CameraPreview {
         };
     }
 
-    fn cancel_stream(&self) {}
+    fn cancel_stream(&self) {
+        self.stop_stream();
+    }
     fn create_pipeline(&mut self) {
         // let window_dimensions = Dimension2D::<u16>::new(800, 600);
         let window_dimensions = Dimension2D::<u16>::new(400, 300);

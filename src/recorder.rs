@@ -2,8 +2,7 @@ use crate::Config;
 use crate::Media;
 use gstreamer::{caps::Caps, event, prelude::*, Element, ElementFactory, Pipeline, State};
 use num_rational::Ratio;
-use std::thread;
-use std::time;
+use std::{fs, path::Path, thread, time};
 #[derive(Debug)]
 pub struct Recorder {
     pub config: Config,
@@ -42,8 +41,12 @@ impl Media for Recorder {
         };
     }
 
-    fn cancel_stream(&self) {}
-    // fn handle_stream(&self) {
+    fn cancel_stream(&self) {
+        println!("Cancelling recoding");
+        self.stop_stream();
+        fs::remove_file(Path::new(self.config.path.as_str())).unwrap();
+    }
+
     fn create_pipeline(&mut self) {
         let rate = Ratio::new(self.config.framerate as i32, 1);
         // Pipeline creation

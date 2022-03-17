@@ -66,11 +66,21 @@ impl Session {
     }
 
     pub fn end(&mut self) {
-        for task in self.tasks.pop() {
+        while let Some(task) = self.tasks.pop() {
             match task {
                 Task::Record(obj) => obj.stop_stream(),
                 Task::Stream(obj) => obj.stop_stream(),
                 Task::Overlay(obj) => obj.stop_stream(),
+            };
+        }
+    }
+
+    pub fn cancel(&mut self) {
+        while let Some(task) = self.tasks.pop() {
+            match task {
+                Task::Record(obj) => obj.cancel_stream(),
+                Task::Stream(obj) => obj.cancel_stream(),
+                Task::Overlay(obj) => obj.cancel_stream(),
             };
         }
     }
