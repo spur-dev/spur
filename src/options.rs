@@ -22,7 +22,6 @@ impl SType {
 
     pub fn get_target_path(&self, filename: &String) -> String {
         match self {
-            // todo: convert this into a function
             SType::Record => paths::get_video_path(filename)
                 .as_path()
                 .display()

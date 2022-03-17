@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.1.2", features = ["derive"] }
-x11rb = { version = "0.9.0", features = ["cursor"] }
+x11rb = { version = "0.9.0"}
 scrap = "0.5.0"
 v4l = {version = "0.12.1", features = ["v4l2-sys"] }
 gstreamer = "0.17.4"

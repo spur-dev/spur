@@ -175,8 +175,8 @@ impl Media for Recorder {
         Element::link_many(&[&src_audio, &raw_audio_caps, &queue_audio, &encoder_audio])
             .expect("unable to link audio elements in recording pipeline");
         // Linking tail elements
-        queue_video.link(&muxer).unwrap(); // Video to muxer // TODO (probably overcomlicating): use `link_pad` with sync handler
-        encoder_audio.link(&muxer).unwrap(); // Audio to muxer // TODO (probably overcomlicating): use `link_pad` with sync handler
+        queue_video.link(&muxer).unwrap(); // Video to muxer // TODO (probably overcomplicating): use `link_pad` with sync handler
+        encoder_audio.link(&muxer).unwrap(); // Audio to muxer // TODO (probably overcomplicating): use `link_pad` with sync handler
         Element::link_many(&[&muxer, &sink])
             .expect("unable to link audio elements in recording pipeline");
 
