@@ -1,23 +1,92 @@
-use crate::Config;
-use crate::Media;
+use crate::{Config, Media};
 use clap::Arg;
+use num_rational::Ratio;
+use std::{sync::Arc, thread, time};
+
 use gstreamer::{
     caps::Caps, event, message::MessageView, prelude::*, BusSyncReply, Element, ElementFactory,
     Pipeline, State,
 };
 use gstreamer_video::{prelude::VideoOverlayExtManual, VideoOverlay};
-use num_rational::Ratio;
-use std::{thread, time};
+
 use x11rb::{
     connection::Connection,
-    protocol::xproto::{
-        ConnectionExt, // Trait
-        CreateWindowAux,
-        EventMask,
-        WindowClass,
+    protocol::{
+        xproto::{
+            ConfigureWindowAux,
+            ConnectionExt, // Trait
+            CreateWindowAux,
+            EventMask,
+            WindowClass,
+        },
+        Event,
     },
     wrapper::ConnectionExt as ConnectionExtTrait,
 };
+
+/* Utils */
+struct Dimension2D<T> {
+    width: T,
+    height: T,
+}
+
+struct Coordinate2D<T> {
+    x: T,
+    y: T,
+}
+
+impl<T> Dimension2D<T> {
+    fn new(width: T, height: T) -> Self {
+        Dimension2D::<T> { width, height }
+    }
+}
+
+impl<T> Coordinate2D<T> {
+    fn new(x: T, y: T) -> Self {
+        Coordinate2D::<T> { x, y }
+    }
+}
+
+#[allow(dead_code)] // todo: implement cli option for default overlay position
+enum InitialPosition {
+    TopLeft,
+    TopRight,
+    BottomLeft,
+    BottomRight,
+}
+
+impl Default for InitialPosition {
+    fn default() -> Self {
+        InitialPosition::BottomRight
+    }
+}
+
+fn coordinates_for_initial_overlay(
+    screen: &Dimension2D<u16>,
+    window: &Dimension2D<u16>,
+    padding: &Coordinate2D<u16>,
+    position: InitialPosition,
+) -> Coordinate2D<i16> {
+    match position {
+        InitialPosition::TopLeft => Coordinate2D::<i16>::new(
+            (screen.width + padding.x) as i16,
+            (screen.height + padding.y) as i16,
+        ),
+        InitialPosition::TopRight => Coordinate2D::<i16>::new(
+            (screen.width - window.width - padding.x) as i16,
+            (screen.height + padding.y) as i16,
+        ),
+        InitialPosition::BottomLeft => Coordinate2D::<i16>::new(
+            (screen.width + padding.x) as i16,
+            (screen.height - window.height - padding.y) as i16,
+        ),
+        InitialPosition::BottomRight => Coordinate2D::<i16>::new(
+            (screen.width - window.width - padding.x) as i16,
+            (screen.height - window.height - padding.y) as i16,
+        ),
+    }
+}
+
 pub fn create_arg<'a>() -> Arg<'a> {
     Arg::new("overlay")
         .long("overlay")
@@ -28,6 +97,8 @@ pub fn create_arg<'a>() -> Arg<'a> {
 }
 
 pub fn default() -> bool {
+    // todo: convert to default trait implementation
+    // Could seperate overlay into overlay_pipeline and overlay_option
     true
 }
 
@@ -62,7 +133,7 @@ impl Media for CameraPreview {
     fn stop_stream(&self) {
         match &self.pipeline {
             Some(pipeline) => {
-                pipeline.send_event(event::Eos::new());
+                pipeline.send_event(event::Eos::new()); // todo: add handler
                 thread::sleep(time::Duration::from_secs(5)); // Hacky: but there should be a better way}
                 pipeline
                     .set_state(State::Null)
@@ -76,43 +147,43 @@ impl Media for CameraPreview {
 
     fn cancel_stream(&self) {}
     fn create_pipeline(&mut self) {
-        let rate = Ratio::new(self.config.framerate as i32, 1);
-        const WIDTH: i32 = 400;
-        // const WIDTH: i32 = 800;
-        const HEIGHT: i32 = 300;
-        // const HEIGHT: i32 = 600;
-        const PADDING: i32 = 15;
+        // let window_dimensions = Dimension2D::<u16>::new(800, 600);
+        let window_dimensions = Dimension2D::<u16>::new(400, 300);
+        let padding = Coordinate2D::<u16>::new(15, 15);
         const FORMAT: &str = "YUV2";
+        let rate = Ratio::new(self.config.framerate as i32, 1);
+
         /* Window creation */
         let (conn, screen_num) = x11rb::connect(None).unwrap();
+        let conn = Arc::new(conn); // will be shared with gstreamer xvimagesink
         let screen = &conn.setup().roots[screen_num];
         let win_id = conn.generate_id().unwrap();
 
-        let screen_width = screen.width_in_pixels as u16;
-        let screen_height = screen.height_in_pixels as u16;
-
-        let window_width = WIDTH as u16;
-        let window_height = HEIGHT as u16;
+        let screen_dimensions =
+            Dimension2D::<u16>::new(screen.width_in_pixels, screen.height_in_pixels);
 
         let win_aux = CreateWindowAux::new()
             .event_mask(
-                EventMask::EXPOSURE
-                    | EventMask::STRUCTURE_NOTIFY
-                    | EventMask::BUTTON1_MOTION
-                    | EventMask::NO_EVENT,
+                EventMask::BUTTON1_MOTION, // EventMask::STRUCTURE_NOTIFY // todo: implement resizing
             )
             .override_redirect(true as u32)
             .border_pixel(None)
             .background_pixel(screen.black_pixel);
 
+        let window_coordinates = coordinates_for_initial_overlay(
+            &screen_dimensions,
+            &window_dimensions,
+            &padding,
+            InitialPosition::default(),
+        );
         conn.create_window(
             screen.root_depth,
             win_id,
             screen.root,
-            (screen_width - window_width - (PADDING as u16)) as i16,
-            (screen_height - window_height - (PADDING as u16)) as i16,
-            window_width,
-            window_height,
+            window_coordinates.x,
+            window_coordinates.y,
+            window_dimensions.width,
+            window_dimensions.height,
             0,
             WindowClass::INPUT_OUTPUT,
             0,
@@ -123,6 +194,8 @@ impl Media for CameraPreview {
         conn.map_window(win_id).unwrap();
 
         /* Gstreamer pipline message handler */
+        let conn1 = conn.clone();
+        let win_id1 = win_id; // todo: figure out how to specify move, and referrence to variables in closures
         let sync_handler_closure = move |_bus: &gstreamer::Bus, msg: &gstreamer::Message| {
             match msg.view() {
                 MessageView::Element(element) => {
@@ -133,9 +206,9 @@ impl Media for CameraPreview {
                         .dynamic_cast::<VideoOverlay>()
                         .unwrap();
 
-                    conn.sync().unwrap();
+                    let _ = &conn1.sync().unwrap();
                     unsafe {
-                        video_overlay.set_window_handle(win_id as _);
+                        video_overlay.set_window_handle(win_id1 as _);
                     }
                     BusSyncReply::Drop
                 }
@@ -143,6 +216,44 @@ impl Media for CameraPreview {
                 _ => BusSyncReply::Pass,
             }
         };
+
+        /* X11 window event handler */
+        // todo: add cleanup for join handle
+        thread::spawn(move || {
+            loop {
+                let original_pointer_position =
+                    &conn.query_pointer(win_id).unwrap().reply().unwrap();
+
+                let new_window_coordinates = Coordinate2D::<i16>::new(
+                    original_pointer_position.root_x - original_pointer_position.win_x,
+                    original_pointer_position.root_y - original_pointer_position.win_y,
+                );
+                if let Ok(event) = &conn.wait_for_event() {
+                    match event {
+                        /* Dragging Window */
+                        Event::MotionNotify(motion_event) => {
+                            let deltax = original_pointer_position.win_x - motion_event.event_x;
+                            let deltay = original_pointer_position.win_y - motion_event.event_y;
+
+                            // Hacky, but works
+                            if deltax.abs() < 75 && deltay.abs() < 75 {
+                                let mut new_attributes = ConfigureWindowAux::new();
+                                /* ConfigureWindowAux methods .x() and .y() do not work */
+                                new_attributes.x = Some((new_window_coordinates.x - deltax) as i32);
+                                new_attributes.y = Some((new_window_coordinates.y - deltay) as i32);
+
+                                let _ = &conn.configure_window(win_id, &new_attributes).unwrap();
+
+                                conn.map_window(win_id).unwrap();
+                            }
+                        }
+
+                        _ => println!("Unwanted event recieved, please report this issue"),
+                    }
+                };
+                conn.flush().unwrap();
+            }
+        });
 
         /* Pipeline creation */
         gstreamer::init().expect("cannot start gstreamer");
