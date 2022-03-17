@@ -51,6 +51,34 @@ pub fn get_filename_from_arg(st: SType, arg_filename: Option<&str>) -> String {
     }
 }
 
+fn setup() {
+    // Creating a Videos directory
+    let videos_path = paths::get_video_directory_path();
+
+    fs::DirBuilder::new()
+        .recursive(true)
+        .create(&videos_path)
+        .unwrap_or_else(|err| {
+            println!("Couldn't create directory - {}", videos_path.display());
+            println!("Error - {:?}", err);
+            process::exit(1);
+        });
+
+    // CURRENTLY, NOT USED
+    // Saving conf to text file
+    let home_path = paths::get_home_path().expect("Couldn't find your Home directory");
+    let mut conf_file = fs::File::create(format!(
+        "{}/{}",
+        home_path.display(),
+        constants::CONFIG_FILE_NAME
+    ))
+    .expect("Could not create conf file");
+    conf_file
+        .write_all(format!("{}", videos_path.display()).as_bytes()) // hacky
+        .expect("Could not write to conf file");
+    println!("-------------- Setup is complete ------------------------");
+}
+
 /* Parser */
 pub fn parse_args() -> ArgMatches {
     return Command::new("spur")
@@ -70,32 +98,7 @@ pub fn create_session_from_args() -> Session {
     let matches = parser::parse_args();
     match matches.subcommand() {
         Some(("setup", _)) => {
-            // todo : abstract to function
-            // Creating a Videos directory
-            let videos_path = paths::get_video_directory_path();
-
-            fs::DirBuilder::new()
-                .recursive(true)
-                .create(&videos_path)
-                .unwrap_or_else(|err| {
-                    println!("Couldn't create directory - {}", videos_path.display());
-                    println!("Error - {:?}", err);
-                    process::exit(1);
-                });
-
-            // CURRENTLY, NOT USED
-            // Saving conf to text file
-            let home_path = paths::get_home_path().expect("Couldn't find your Home directory");
-            let mut conf_file = fs::File::create(format!(
-                "{}/{}",
-                home_path.display(),
-                constants::CONFIG_FILE_NAME
-            ))
-            .expect("Could not create conf file");
-            conf_file
-                .write_all(format!("{}", videos_path.display()).as_bytes()) // hacky
-                .expect("Could not write to conf file");
-            println!("-------------- Setup is complete ------------------------");
+            setup();
             process::exit(0);
         }
         Some((cmd_str, sub_match)) => {
