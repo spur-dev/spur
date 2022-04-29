@@ -1,7 +1,10 @@
-use crate::{Config, Media};
+use crate::{api, Config, Media};
+use futures::executor;
 use gstreamer::{caps::Caps, event, prelude::*, Element, ElementFactory, Pipeline, State};
 use num_rational::Ratio;
 use std::{thread, time};
+
+use tokio::runtime::Runtime; // TODO: Find a way to avoid this by spawning in tokio runtime
 #[derive(Debug)]
 pub struct Streamer {
     pub config: Config,
@@ -17,6 +20,8 @@ impl Media for Streamer {
     }
 
     fn start_pipeline(&mut self) {
+        println!("starting stream pipeline"); // DEBUG
+
         match &self.pipeline {
             Some(pipeline) => pipeline
                 .set_state(State::Playing)
@@ -34,17 +39,48 @@ impl Media for Streamer {
                     .set_state(State::Null)
                     .expect("Unable to set the pipeline to the `Null` state");
 
-                println!("Got it! Closing...");
+                // Getting preview url
+                if let Some(vid) = &self.config.vid {
+                    // TODO: avoid spawning runtimes because of the thread spawn
+                    let rt = Runtime::new().unwrap();
+                    let handle = rt.handle();
+                    let preview_url = handle
+                        .block_on(api::get_preview_url(vid))
+                        .expect("Could not generate video id");
+
+                    println!(
+                        "You can see your recording here, once it is ready - {}",
+                        preview_url
+                    )
+                }
             }
-            None => panic!("Pipeline not created"),
+            None => panic!("Trying to stop pipeline before creating"),
         };
     }
 
     fn cancel_stream(&self) {
-        println!("canceling streamer -- not yet implmented"); // todo
-        self.stop_stream();
+        println!("cancelling...");
+        if let Some(pipeline) = &self.pipeline {
+            pipeline.send_event(event::Eos::new());
+            pipeline
+                .set_state(State::Null)
+                .expect("Unable to set the pipeline to the `Null` state");
+
+            // sending cancel event to backend
+            if let Some(vid) = &self.config.vid {
+                // TODO: avoid spawning runtimes because of the thread spawn
+                let rt = Runtime::new().unwrap();
+                let handle = rt.handle();
+                let _ = handle.block_on(api::cancel_recording(vid));
+            }
+        };
     }
     fn create_pipeline(&mut self) {
+        // Asking backend for video id
+        let vid = executor::block_on(api::get_new_video_id(&self.config.uid))
+            .expect("Could not generate video id");
+        self.config.vid = Some(vid);
+
         let rate = Ratio::new(self.config.framerate as i32, 1);
 
         // Pipeline creation
@@ -80,7 +116,7 @@ impl Media for Streamer {
         // Mux and sink -- maybe sink, maybe rtmp
         let muxer =
             ElementFactory::make("flvmux", Some("mkv-muxer")).expect("Unable to make mkv-muxer"); // trying different muxer here
-        let sink = ElementFactory::make("rtmpsink", Some(&self.config.path))
+        let sink = ElementFactory::make("rtmpsink", Some(&self.config.get_target_path().as_str()))
             .expect("Unable to make mkv-filesink");
 
         // Adding video elements
@@ -159,7 +195,8 @@ impl Media for Streamer {
             ])
             .unwrap();
         queue_audio.set_property("max-size-time", 0 as u64).unwrap();
-        sink.set_property("location", &self.config.path).unwrap();
+        sink.set_property("location", &self.config.get_target_path())
+            .unwrap();
 
         // Linking video elements
         Element::link_many(&[

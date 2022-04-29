@@ -34,8 +34,6 @@ impl Media for Recorder {
                 pipeline
                     .set_state(State::Null)
                     .expect("Unable to set the pipeline to the `Null` state");
-
-                println!("Got it! Closing...");
             }
             None => panic!("Pipeline not created"),
         };
@@ -44,7 +42,7 @@ impl Media for Recorder {
     fn cancel_stream(&self) {
         println!("Cancelling recoding");
         self.stop_stream();
-        fs::remove_file(Path::new(self.config.path.as_str())).unwrap();
+        fs::remove_file(Path::new(self.config.get_target_path().as_str())).unwrap();
     }
 
     fn create_pipeline(&mut self) {
@@ -161,7 +159,8 @@ impl Media for Recorder {
             ])
             .unwrap();
         queue_audio.set_property("max-size-time", 0 as u64).unwrap();
-        sink.set_property("location", &self.config.path).unwrap();
+        sink.set_property("location", &self.config.get_target_path())
+            .unwrap();
 
         // Linking video elements
         Element::link_many(&[

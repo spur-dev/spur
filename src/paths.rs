@@ -22,6 +22,6 @@ pub fn get_video_path(filename: &String) -> PathBuf {
     path
 }
 
-pub fn get_stream_path(filename: &String) -> String {
-    format!("{}{}", env!("STREAM_API"), filename)
+pub fn get_stream_path(vid: &String) -> String {
+    format!("{}/{}", env!("STREAM_API"), vid)
 }

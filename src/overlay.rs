@@ -138,8 +138,6 @@ impl Media for CameraPreview {
                 pipeline
                     .set_state(State::Null)
                     .expect("Unable to set the pipeline to the `Null` state");
-
-                println!("Got it! Closing...");
             }
             None => panic!("Pipeline not created"),
         };

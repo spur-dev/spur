@@ -5,14 +5,15 @@ use crate::{
     session::Session,
     Config,
 };
+
 use clap::{Arg, ArgMatches, Command};
 use std::{
-    fs,
-    io::Write,
+    fs::{self, File},
+    io::{prelude::*, BufReader, Write},
     process,
     str::FromStr,
-    time::{SystemTime, UNIX_EPOCH},
 };
+use uuid::Uuid;
 
 /* Utils */
 fn create_sub_command(st: SType) -> Command<'static> {
@@ -28,33 +29,31 @@ fn create_sub_command(st: SType) -> Command<'static> {
     ])
 }
 
-pub fn get_filename_from_arg(st: SType, arg_filename: Option<&str>) -> String {
-    let name = match arg_filename {
-        Some(fname) => String::from(fname),
-        None => {
-            // Getting millisecond timestamp
-            // https://stackoverflow.com/a/44378174/11565176
-            let start = SystemTime::now();
-            let since_the_epoch = start
-                .duration_since(UNIX_EPOCH)
-                .expect("Time went backwards");
-            format!(
-                "{:?}",
-                since_the_epoch.as_secs() * 1000
-                    + since_the_epoch.subsec_nanos() as u64 / 1_000_000
-            )
-        }
-    };
-    match st {
-        SType::Record => format!("{}.mkv", name),
-        SType::Stream => format!("/{}/{}", env!("STREAM_API_PATH"), name),
-    }
+fn generate_uuid() -> String {
+    return Uuid::new_v4().to_string();
+}
+
+// TODO: File path for read could be improved
+pub fn get_uid() -> String {
+    let home_path = paths::get_home_path().expect("Couldn't find your Home directory");
+    let conf_file = File::open(format!(
+        "{}/{}",
+        home_path.display(),
+        constants::CONFIG_FILE_NAME
+    ))
+    .unwrap();
+
+    let mut uid = String::new();
+    BufReader::new(conf_file)
+        .read_line(&mut uid)
+        .expect("Could not find UID, Please Run Setup");
+    return uid;
 }
 
 fn setup() {
     // Creating a Videos directory
     let videos_path = paths::get_video_directory_path();
-
+    let uid = generate_uuid();
     fs::DirBuilder::new()
         .recursive(true)
         .create(&videos_path)
@@ -64,7 +63,6 @@ fn setup() {
             process::exit(1);
         });
 
-    // CURRENTLY, NOT USED
     // Saving conf to text file
     let home_path = paths::get_home_path().expect("Couldn't find your Home directory");
     let mut conf_file = fs::File::create(format!(
@@ -74,7 +72,8 @@ fn setup() {
     ))
     .expect("Could not create conf file");
     conf_file
-        .write_all(format!("{}", videos_path.display()).as_bytes()) // hacky
+        // .write_all(format!("{} \n{} \n", uid, videos_path.display()).as_bytes()) // hacky
+        .write_all(uid.as_bytes())
         .expect("Could not write to conf file");
     println!("-------------- Setup is complete ------------------------");
 }
@@ -96,6 +95,7 @@ pub fn parse_args() -> ArgMatches {
 
 pub fn create_session_from_args() -> Session {
     let matches = parser::parse_args();
+    let uid = parser::get_uid();
     match matches.subcommand() {
         Some(("setup", _)) => {
             setup();
@@ -105,7 +105,7 @@ pub fn create_session_from_args() -> Session {
             // Creating config for new session
             let st = SType::from_str(cmd_str).unwrap();
             let arg_filename = sub_match.value_of("name");
-            let mut conf = Config::new(st, get_filename_from_arg(st, arg_filename));
+            let mut conf = Config::new(uid, st, arg_filename);
 
             // Updating config with parsed parameters
             let arg_quality = sub_match

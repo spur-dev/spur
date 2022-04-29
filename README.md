@@ -17,7 +17,7 @@ sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgst
 - Mark it as executable by running `chmod +x spur` on the binary
 - Run the setup `./spur setup`. This sets the directory where the videos will be stored
 - Use `./spur -h` or `./spur <command> -h` to see the available options 
-> **Note:**  Currently only supports local recordings. The stream functionality for remote recording is still a WIP
+> **Note:**  Naming online recordings is currently not supported
 
 ### Example
 

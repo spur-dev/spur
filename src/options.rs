@@ -1,4 +1,4 @@
-use crate::{paths, CustomError};
+use crate::CustomError;
 use clap::Arg;
 use std::str::FromStr;
 
@@ -18,16 +18,6 @@ pub enum SType {
 impl SType {
     pub fn get_name(&self) -> String {
         SType::to_string(self)
-    }
-
-    pub fn get_target_path(&self, filename: &String) -> String {
-        match self {
-            SType::Record => paths::get_video_path(filename)
-                .as_path()
-                .display()
-                .to_string(),
-            SType::Stream => paths::get_stream_path(filename),
-        }
     }
 }
 

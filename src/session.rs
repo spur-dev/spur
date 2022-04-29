@@ -58,7 +58,7 @@ impl Session {
         return Task::Overlay(task_obj);
     }
     pub fn start(&mut self) {
-        // println!("{:?}", self); // DEBUG
+        println!("{:?}", self); // DEBUG
         self.tasks.push(self.start_media_pipeline());
         if self.overlay {
             self.tasks.push(self.start_overlay_pipeline());

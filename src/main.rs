@@ -1,6 +1,8 @@
 use spur::parser::create_session_from_args;
 use std::{io, thread};
-fn main() {
+
+#[tokio::main]
+async fn main() -> Result<(), reqwest::Error> {
     let mut current_session = create_session_from_args();
     current_session.start();
     // Input
@@ -18,4 +20,6 @@ fn main() {
         // current_session.execute(&input);
     });
     main_handler.join().unwrap();
+
+    Ok(())
 }
